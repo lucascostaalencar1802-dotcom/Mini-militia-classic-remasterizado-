@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101827">
+<title>Mini Militia Classic Remasterizado</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101827;color:#eef5ff;font-family:system-ui,Arial,sans-serif;touch-action:none}
+canvas{display:block;width:100vw;height:100dvh;background:#172c40}
+#hud{position:fixed;inset:9px 10px auto;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.panel{background:#091525d9;border:1px solid #91b5d355;border-radius:12px;padding:7px 10px;box-shadow:0 4px 14px #0005;font-size:11px;min-width:112px}
+#bar{height:8px;background:#435064;border-radius:9px;overflow:hidden;margin-top:5px;width:115px}#hp{height:100%;width:100%;background:linear-gradient(90deg,#34c77b,#b5ed68)}
+#ammo{font-size:17px;font-weight:900}#hint{color:#b5c9dc}
+#overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#07111de8;padding:16px}
+.card{width:min(440px,94vw);background:#102033;border:1px solid #8eb2d455;border-radius:20px;padding:22px;text-align:center;box-shadow:0 18px 60px #0009}
+h1{font-size:clamp(28px,7vw,42px);margin:0;letter-spacing:1px}.sub{font-size:13px;color:#a9c0d5;margin:7px 0 17px}
+input{width:100%;border-radius:10px;border:1px solid #7894ad66;background:#081522;color:white;padding:12px;font-size:16px;margin:5px 0 10px}
+button{border:0;border-radius:12px;padding:12px 16px;font-weight:900;color:#07131d;background:linear-gradient(#c2f58a,#67d99b);font-size:14px;cursor:pointer}
+button.alt{background:#263e55;color:#eaf5ff;border:1px solid #89a9c455}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.small{font-size:11px;color:#9eb6ca;line-height:1.5;margin-top:13px}
+#touch{position:fixed;inset:auto 0 10px;display:flex;justify-content:space-between;align-items:end;padding:0 12px;pointer-events:none}
+.pad{display:grid;grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px;gap:3px;pointer-events:auto}
+.ctrl{width:48px;height:48px;border-radius:15px;background:#081526b8;border:1px solid #b4d5ef77;color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none}
+.ctrl.on{background:#70dba9d9;color:#06131c}
+.actions{display:grid;grid-template-columns:repeat(2,58px);gap:7px;pointer-events:auto}.actions .ctrl{width:58px;height:53px;font-size:10px;font-weight:900}
+#pause{position:fixed;right:10px;top:75px;background:#091525d9;color:#fff;border:1px solid #91b5d355;padding:8px 12px}
+#toast{position:fixed;top:52%;left:50%;transform:translate(-50%,-50%);padding:10px 15px;border-radius:12px;background:#071525d9;color:white;font-size:13px;pointer-events:none;opacity:0;transition:opacity .2s}
+@media(min-width:850px){#touch{opacity:.78}.ctrl{width:54px;height:54px}.pad{grid-template-columns:54px 54px 54px;grid-template-rows:54px 54px 54px}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+ <div class="panel"><b>MINI MILITIA CLASSIC REMASTERIZADO</b><div id="net">CONECTANDO...</div><div id="bar"><div id="hp"></div></div><div id="healthText">VIDA 100</div></div>
+ <div class="panel" style="text-align:right"><div id="ammo">12 / ∞</div><div>PISTOLA</div><div id="score">ABATES 0</div></div>
+</div>
+<button id="pause">Ⅱ</button>
+<div id="touch">
+ <div class="pad">
+  <div></div><div class="ctrl" data-key="up">▲</div><div></div>
+  <div class="ctrl" data-key="left">◀</div><div class="ctrl" data-key="down">●</div><div class="ctrl" data-key="right">▶</div>
+  <div></div><div class="ctrl" data-key="jet">JET</div><div></div>
+ </div>
+ <div class="actions">
+  <div class="ctrl" data-key="shoot">ATIRAR</div><div class="ctrl" data-key="jump">PULAR</div>
+  <div class="ctrl" data-key="reload">RECARGA</div><div class="ctrl" data-key="aim">MIRAR</div>
+ </div>
+</div>
+<div id="toast"></div>
+<div id="overlay">
+ <div class="card">
+  <h1>MINI MILITIA CLASSIC REMASTERIZADO</h1><div class="sub">ARENA 2D • MULTIPLAYER ONLINE</div>
+  <input id="name" maxlength="14" placeholder="Seu apelido" value="Player">
+  <input id="server" placeholder="Endereço do servidor" value="">
+  <div class="row"><button id="connect">ENTRAR NA ARENA</button></div>
+  <div class="small">Informe o endereço do servidor hospedado com este projeto. Para testar no mesmo aparelho, use ws://localhost:3000. Em hospedagem HTTPS, use wss://.</div>
+  <div class="small" id="connectMsg">A arena online precisa de um servidor Node.js ativo.</div>
+ </div>
+</div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=Math.min(devicePixelRatio||1,2);
+function resize(){W=innerWidth;H=innerHeight;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+const keys={left:false,right:false,up:false,down:false,jet:false,jump:false,shoot:false,aim:false,reload:false};
+document.querySelectorAll('[data-key]').forEach(el=>{
+ const k=el.dataset.key;
+ const on=e=>{e.preventDefault();keys[k]=true;el.classList.add('on')};
+ const off=e=>{e.preventDefault();keys[k]=false;el.classList.remove('on')};
+ el.addEventListener('pointerdown',on);['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,off));
+});
+addEventListener('keydown',e=>{const map={ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right',ArrowUp:'jump',w:'jump', ' ':'jet',Shift:'jet',f:'shoot',r:'reload'};let k=map[e.key];if(k){keys[k]=true;e.preventDefault()}});
+addEventListener('keyup',e=>{const map={ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right',ArrowUp:'jump',w:'jump',' ':'jet',Shift:'jet',f:'shoot',r:'reload'};let k=map[e.key];if(k)keys[k]=false});
+let socket=null,connected=false,me=null,players={},bullets=[],platforms=[],cameraX=0,paused=false,lastSend=0,shootAt=0;
+const world={width:2400,height:900};
+function makePlatforms(){platforms=[{x:0,y:820,w:2400,h:80},{x:220,y:660,w:300,h:22},{x:650,y:560,w:280,h:22},{x:1050,y:690,w:310,h:22},{x:1510,y:560,w:300,h:22},{x:1900,y:680,w:300,h:22},{x:900,y:390,w:260,h:20},{x:1430,y:350,w:230,h:20}]}
+makePlatforms();
+const overlay=document.getElementById('overlay'),connectMsg=document.getElementById('connectMsg');
+if(location.host){document.getElementById('server').value=(location.protocol==='https:'?'wss://':'ws://')+location.host;}
+function toast(t){let el=document.getElementById('toast');el.textContent=t;el.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.opacity=0,1500)}
+function connect(){
+ let name=(document.getElementById('name').value||'Player').trim().slice(0,14);
+ let addr=document.getElementById('server').value.trim();
+ if(!addr){connectMsg.textContent='Digite o endereço do servidor (ex.: ws://localhost:3000).';return}
+ if(!/^wss?:\/\//.test(addr)){addr=(location.protocol==='https:'?'wss://':'ws://')+addr}
+ connectMsg.textContent='Conectando...';
+ try{socket=new WebSocket(addr)}catch(e){connectMsg.textContent='Endereço inválido.';return}
+ socket.onopen=()=>{connected=true;socket.send(JSON.stringify({type:'join',name}));overlay.style.display='none';document.getElementById('net').textContent='ONLINE';toast('Conectado à arena!')};
+ socket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}
+  if(m.type==='state'){players=m.players||{};bullets=m.bullets||[];me=players[socket.id]||me}
+  if(m.type==='welcome'){socket.id=m.id;me=m.player}
+  if(m.type==='notice')toast(m.text);
+  if(m.type==='hit'&&m.id===socket.id)toast('Você foi atingido!');
+ };
+ socket.onclose=()=>{connected=false;document.getElementById('net').textContent='OFFLINE';overlay.style.display='flex';connectMsg.textContent='Conexão encerrada. Confira o endereço e tente novamente.'};
+ socket.onerror=()=>{connectMsg.textContent='Não foi possível conectar. Verifique se o servidor está ativo.'};
+}
+document.getElementById('connect').onclick=connect;
+document.getElementById('pause').onclick=()=>{paused=!paused;document.getElementById('pause').textContent=paused?'▶':'Ⅱ';toast(paused?'Jogo pausado':'Jogo retomado')};
+function drawBackground(){
+ let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#6eb5d2');g.addColorStop(.58,'#c4d8c8');g.addColorStop(1,'#e3c99b');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ // distant hills
+ ctx.save();ctx.translate(-cameraX*.18,0);ctx.fillStyle='#6c9a91';for(let i=0;i<7;i++){ctx.beginPath();ctx.arc(i*430, H*.56, 190,Math.PI,0);ctx.fill()}ctx.restore();
+ ctx.save();ctx.translate(-cameraX,0);
+ for(const p of platforms){ctx.fillStyle='#536b62';ctx.fillRect(p.x,p.y,p.w,p.h);ctx.fillStyle='#8bb78a';ctx.fillRect(p.x,p.y,p.w,6);ctx.fillStyle='#3e514d';for(let x=p.x+12;x<p.x+p.w;x+=32)ctx.fillRect(x,p.y+10,12,4)}
+ ctx.restore();
+}
+function drawPlayer(p,isMe){
+ let x=p.x-cameraX,y=p.y;
+ ctx.save();ctx.translate(x,y);if(p.facing<0)ctx.scale(-1,1);
+ // jet flame
+ if(p.jet){ctx.fillStyle='#ffb34f';ctx.beginPath();ctx.moveTo(-7,15);ctx.lineTo(-2,39+Math.random()*8);ctx.lineTo(4,15);ctx.fill()}
+ ctx.fillStyle=isMe?'#4ce0a0':'#f3a65e';ctx.fillRect(-11,-5,22,25);
+ ctx.fillStyle='#26384b';ctx.fillRect(-9,15,7,13);ctx.fillRect(3,15,7,13);
+ ctx.fillStyle='#e9c6a2';ctx.beginPath();ctx.arc(0,-15,11,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#283c50';ctx.fillRect(-10,-20,20,7);
+ ctx.fillStyle='#172536';ctx.fillRect(7,-3,19,5);
+ ctx.restore();
+ ctx.fillStyle='#f5fbff';ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText(p.name||'Player',x,y-34);
+ ctx.fillStyle='#25394b';ctx.fillRect(x-16,y-29,32,4);ctx.fillStyle='#70e0a4';ctx.fillRect(x-16,y-29,32*Math.max(0,(p.hp||100)/100),4);
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);drawBackground();
+ let list=Object.values(players);
+ if(me){cameraX=Math.max(0,Math.min(world.width-W,me.x-W*.43))}
+ for(const b of bullets){ctx.fillStyle='#ffe58a';ctx.beginPath();ctx.arc(b.x-cameraX,b.y,4,0,Math.PI*2);ctx.fill()}
+ for(const p of list)drawPlayer(p,p.id===socket?.id);
+ document.getElementById('healthText').textContent='VIDA '+Math.max(0,Math.round(me?.hp??100));
+ document.getElementById('hp').style.width=Math.max(0,me?.hp??100)+'%';
+ document.getElementById('score').textContent='ABATES '+(me?.kills||0);
+ document.getElementById('ammo').textContent=(me?.ammo??12)+' / ∞';
+ requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+function sendInput(){
+ if(!connected||!socket||socket.readyState!==1||paused)return;
+ const now=performance.now();
+ if(now-lastSend<33)return;lastSend=now;
+ socket.send(JSON.stringify({type:'input',keys:{left:keys.left,right:keys.right,jump:keys.jump||keys.up,jet:keys.jet,shoot:keys.shoot,aim:keys.aim,reload:keys.reload}}));
+ if(keys.reload)keys.reload=false;
+}
+setInterval(sendInput,16);
+})();
+</script>
+</body></html>
