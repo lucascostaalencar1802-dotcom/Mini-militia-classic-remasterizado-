@@ -1,0 +1,9 @@
+{
+  "name": "mini-militia-classic-remasterizado",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Recriação fan-made 2D HTML5 de arena com multiplayer e controles touch",
+  "main": "server.js",
+  "scripts": {"start": "node server.js"},
+  "dependencies": {"ws": "^8.18.0"}
+}
